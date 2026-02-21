@@ -41,6 +41,11 @@ The integration of **Backend Buckets** and **Serverless NEGs** in one Load Balan
 ### Security-First Configuration
 The chapter emphasizes **Secret Manager** for metadata injection. Instead of hardcoding the Redis IP or passing it as a plain variable, storing it in Secret Manager ensures that sensitive infrastructure details are versioned and access-controlled. 
 
+### Why store the Redis IP in Secret Manager?
+1. **Security & Obfuscation**: Prevents sensitive internal infrastructure details (like private IPs) from being hardcoded in container images or visible in plaintext in deployment dashboards.
+2. **Dynamic Discovery**: The application (Cloud Run) doesn't need to know the IP at build time. It simply requests the `latest` version of the secret at runtime via the environment variable reference.
+3. **Automated Lifecycle**: If the Redis instance is recreated (potentially changing its IP), Terraform automatically updates the Secret Manager value. The application then picks up the new IP on its next container start without requiring code changes or a manual update to environment variables.
+
 ### Ingress Hardening
 By setting Cloud Run ingress to `internal-and-cloud-load-balancing`, you prevent users from bypassing your Load Balancer and hitting the `.run.app` URL directly. This ensures that features like WAF (Cloud Armor) or CDN (Cloud CDN) enabled on the LB cannot be bypassed.
 

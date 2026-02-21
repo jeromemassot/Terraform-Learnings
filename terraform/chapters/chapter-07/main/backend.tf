@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "<PROJECT_ID>-tf-state"
+    bucket = "exp-terraform-states"
     prefix = "chap07/main"
   }
 }

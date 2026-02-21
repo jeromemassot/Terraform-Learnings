@@ -1,6 +1,7 @@
 # Resource: Google Cloud Service Account
 # Components: A Service Account (SA) is a special type of Google account intended to represent a non-human user.
 # Syntax: The `resource` block defines a physical component in your infrastructure.
+
 resource "google_service_account" "this" {
   # Terraform Functionality: `depends_on` is a meta-argument used to define explicit dependencies.
   # Here, it ensures the IAM API is fully enabled before Terraform attempts to create the SA.

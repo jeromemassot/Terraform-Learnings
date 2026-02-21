@@ -1,5 +1,6 @@
+# Terraform Syntax: `terraform` block defines the version and providers required.
 terraform {
-required_version = "~> 1.3"
+  required_version = "~> 1.3"
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -9,12 +10,6 @@ required_version = "~> 1.3"
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
-}
-
-provider "google-beta" {
   project = var.project_id
   region  = var.region
   zone    = var.zone
