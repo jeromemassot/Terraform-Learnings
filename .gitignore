@@ -10,7 +10,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
-terraform.lock.hcl
+.terraform.lock.hcl
 
 # External Repositories
 cloned-repos/*
