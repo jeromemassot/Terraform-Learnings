@@ -50,4 +50,95 @@ The chapter emphasizes **Secret Manager** for metadata injection. Instead of har
 By setting Cloud Run ingress to `internal-and-cloud-load-balancing`, you prevent users from bypassing your Load Balancer and hitting the `.run.app` URL directly. This ensures that features like WAF (Cloud Armor) or CDN (Cloud CDN) enabled on the LB cannot be bypassed.
 
 ---
+
+## 🌐 Deep Dive: Serverless Networking Architecture
+
+### The "Two-Project" Model
+A fundamental concept in Google Cloud serverless (Cloud Run, Functions) is the separation between management and execution.
+
+- **Customer Project (Your Project)**: Where you define the service, IAM policies, and own the VPC.
+- **Tenant Project (Google Managed)**: A hidden project where Google actually spins up the container instances.
+
+### The VPC Access Connector (The Bridge)
+Because Cloud Run instances technically live in a different project, they have no native access to your VPC. The **Serverless VPC Access Connector** acts as an encrypted bridge.
+
+```mermaid
+graph LR
+    subgraph "Google Managed Pool (Tenant Project)"
+        CR[Cloud Run Instance]
+    end
+
+    subgraph "Your Project (VPC Network)"
+        VPC_CONN[VPC Access Connector]
+        REDIS[(Memorystore / Redis)]
+        DB[(Cloud SQL Private)]
+    end
+
+    CR -- "1. Request to Private IP" --> VPC_CONN
+    VPC_CONN -- "2. Forwards to Subnet" --> REDIS
+    VPC_CONN -.-> DB
+```
+
+### Why this architecture?
+1. **Infinite Scaling**: Google handles the massive IP address management required to scale thousands of containers instantly without exhausting your subnet's IP space.
+2. **Maintenance-Free Compute**: Google patches and manages the underlying host OS in the Tenant Project without interfering with your VPC configurations.
+3. **Security by Default**: Containers are physically isolated from your network until you explicitly open the "connector bridge" and define firewall rules.
+
+---
+
+## 🚦 Deep Dive: The URL Map "Traffic Cop"
+
+The **URL Map** is the brains of the Global Load Balancer. It determines how a single public IP address can serve both static files and dynamic API requests.
+
+```mermaid
+graph TD
+    User([User Request]) --> LB{Global Load Balancer}
+    LB -->|Port 80| TargetProxy[HTTP Target Proxy]
+    TargetProxy --> URLMap[[URL Map: 'cloud-run']]
+    
+    subgraph "Routing Logic (URL Map)"
+        URLMap --> PathCheck{Path matches /api/*?}
+        PathCheck -- "YES" --> BackendAPI[Backend Service: 'api']
+        PathCheck -- "NO (Default)" --> BackendBucket[Backend Bucket: 'static-content']
+    end
+    
+    subgraph "Target Infrastructure"
+        BackendAPI --> CloudRun[Cloud Run Services]
+        BackendBucket --> GCS[(GCS Bucket: Static Assets)]
+    end
+
+    style URLMap fill:#f9f,stroke:#333,stroke-width:2px
+    style PathCheck fill:#fff4dd,stroke:#d4a017,stroke-width:2px
+```
+
+### Path-Based Routing Logic
+- **`path_rule`**: Captures specific patterns (like `/api/*`) and routes them to high-performance compute backends (Cloud Run via Serverless NEGs).
+- **`default_service`**: Acts as a "catch-all." Any request that doesn't match an API path is automatically routed to the GCS Bucket to serve static assets (HTML, images, JS).
+
+### Benefits of the Hybrid Architecture
+1. **Unified Domain**: Users access everything via `example.com`, eliminating CORS issues between frontend and backend.
+2. **Cost Efficiency**: Static assets are served directly from Object Storage (GCS) at a fraction of the cost of compute.
+3. **Operational Simplicity**: A single Global SSL certificate and IP address cover the entire stack.
+
+---
+
+## 🔍 Deep Dive: Dynamic Routing with URL Masks
+
+A critical "Pro Tip" in this chapter is the use of the **`url_mask`** parameter within the Serverless Network Endpoint Group (NEG).
+
+### How it works:
+Instead of manually linking every Cloud Run service to the Load Balancer, the NEG uses a pattern-matching string like:
+`url_mask = "/api/<service>"`
+
+1. **Extraction**: When a user hits `/api/hello`, the Load Balancer "extracts" the word **"hello"** from the URL.
+2. **Dynamic Lookup**: It automatically looks for a Cloud Run service named **"hello"** in the same region and forwards the traffic.
+
+### Why use URL Masks?
+1. **Scalability**: One single NEG and one single Backend Service can handle hundreds of microservices.
+2. **Zero-Touch Configuration**: Adding a new service (e.g., `inventory`) in Terraform only requires creating the `google_cloud_run_service` resource. The Load Balancer will "discover" it automatically without any code changes to the networking layer.
+
+### The "Contract" Requirement
+For this automation to work, there is a strict naming contract: the **URL suffix** must exactly match the **Cloud Run Service Name**. If your service is named `order-processor`, the API endpoint must be `/api/order-processor`.
+
+---
 *Summary generated for learning progression in Terraform for Google Cloud Essential Guide.*

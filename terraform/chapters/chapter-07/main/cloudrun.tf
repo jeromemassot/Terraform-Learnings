@@ -83,6 +83,9 @@ resource "google_cloud_run_service" "redis" {
   }
 }
 
+# Component: IAM Policy for Cloud Run
+# Architecture: Granting 'roles/run.invoker' to 'allUsers' allows the public internet 
+# (via the Load Balancer) to reach this service.
 resource "google_cloud_run_service_iam_binding" "redis" {
   location = google_cloud_run_service.redis.location
   service  = google_cloud_run_service.redis.name

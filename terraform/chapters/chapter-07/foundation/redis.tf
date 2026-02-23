@@ -38,7 +38,7 @@ resource "google_secret_manager_secret" "redis_ip" {
   depends_on = [google_project_service.this["secretmanager"]]
   secret_id  = "redis-ip"
   replication {
-    automatic = true
+    auto {}
   }
 }
 
